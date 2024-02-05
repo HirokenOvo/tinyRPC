@@ -1,13 +1,19 @@
-cmake_minimum_required(VERSION 2.5)
-project(tinyRPC)
+# cmake版本最低要求
+cmake_minimum_required(VERSION 3.5)  
+# 设置工程名称
+project(tinyRPC)  
 
-# cmake => makefile   make
-# tinyRPC最终编译成so动态库，设置动态库的路径，放在根目录的lib文件夹下面
-set(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
-# 设置调试信息 以及 启动C++11语言标准
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -std=c++11 -fPIC")
+# 指定 C++ 版本
+set(CMAKE_CXX_STANDARD 17)  
+# 调试使用Debug，可以查看中间变量；发布使用Release，运行速度快
+set(CMAKE_BUILD_TYPE "Debug")  
 
-# 定义参与编译的源代码文件 
-aux_source_directory(. SRC_LIST)
-# 编译生成动态库tinyRPC
-add_library(mymuduo SHARED ${SRC_LIST})
+# message("${PROJECT_SOURCE_DIR}=" ${PROJECT_SOURCE_DIR})
+
+# 设置可执行文件的输出目录
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)  
+# 设置库文件的输出目录
+SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)	   
+
+# 添加 myMuduo 子项目
+add_subdirectory(src)
