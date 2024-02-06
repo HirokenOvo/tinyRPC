@@ -18,6 +18,7 @@ public:
     void handleEvent(Timestamp receiveTime);
 
     // 设置回调函数
+    //???为什么readcallback参数需要加Timestamp
     void setReadCallback(std::function<void(Timestamp)> cb);
     void setWriteCallback(std::function<void()> cb);
     void setCloseCallback(std::function<void()> cb);

@@ -5,6 +5,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include)
 set(SRC_LIST 
     Channel.cc
     CurrentThread.cc
+    EpollPoller.cc
     InetAddress.cc
     Logger.cc
     Timestamp.cc)

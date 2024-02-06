@@ -1,4 +1,3 @@
-#include <memory>
 #include <sys/epoll.h>
 
 #include "include/Channel.h"
