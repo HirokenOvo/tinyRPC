@@ -1,12 +1,13 @@
 #pragma once
 
-#include "EventLoop.h"
 #include "uncopyable.h"
 #include "Thread.h"
 
 #include <mutex>
 #include <string>
 #include <condition_variable>
+
+class EventLoop;
 
 class EventLoopThread : uncopyable
 {
