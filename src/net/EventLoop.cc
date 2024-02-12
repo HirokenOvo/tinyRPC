@@ -1,5 +1,4 @@
 #include "include/EventLoop.h"
-#include "Timestamp.h"
 #include "include/EpollPoller.h"
 #include "include/Logger.h"
 #include "include/Channel.h"
@@ -29,7 +28,7 @@ int createEventfd()
 }
 
 EventLoop::EventLoop()
-    : looping_{false}, threadId_{CurrentThread::tid()},
+    : looping_{false}, threadId_{CurrentThread::getTid()},
       poller_{std::make_unique<EpollPoller>(this)},
       wakeupFd_{createEventfd()}, wakeupChannel_{std::make_unique<Channel>(this, wakeupFd_)},
       callingPendingFunctors_{false}
@@ -41,7 +40,7 @@ EventLoop::EventLoop()
         t_loopInThisThread = this;
 
     // 设置wakeupfd的事件类型以及发生事件后的回调操作
-    // ???为什么不用timestamp参数
+    // ???为什么不用timestamp参数:::bind参数没有占位符 所以std::fuction里参数有多少都无所谓 但是调用的时候要满足std::function声明的参数数量 然后全没用全被忽略了
     wakeupChannel_->setReadCallback(std::bind(&EventLoop::handleRead, this));
     // wakeupChannel_->setReadCallback([this]()
     //                                 { this->handleRead(); });
@@ -127,7 +126,7 @@ void EventLoop::updateChannel(Channel *channel) { poller_->updateChannel(channel
 void EventLoop::removeChannel(Channel *channel) { poller_->removeChannel(channel); }
 bool EventLoop::hasChannel(Channel *channel) { return poller_->hasChannel(channel); }
 
-bool EventLoop::isInLoopThread() const { return threadId_ == CurrentThread::tid(); }
+bool EventLoop::isInLoopThread() const { return threadId_ == CurrentThread::getTid(); }
 
 void EventLoop::doPendingFunctors()
 {

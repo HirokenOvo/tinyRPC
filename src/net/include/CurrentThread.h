@@ -6,5 +6,5 @@ namespace CurrentThread
 
     void cacheTid(); // 获取Tid并缓存至t_cachedTid
 
-    int tid(); // 返回Tid
+    int getTid(); // 返回Tid
 }

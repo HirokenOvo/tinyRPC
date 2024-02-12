@@ -28,10 +28,10 @@ void Channel::handleEvent(Timestamp receiveTime)
 }
 
 // 设置回调函数
-void Channel::setReadCallback(std::function<void(Timestamp)> cb) { readCallback_ = std::move(cb); }
-void Channel::setWriteCallback(std::function<void()> cb) { writeCallback_ = std::move(cb); }
-void Channel::setCloseCallback(std::function<void()> cb) { closeCallback_ = std::move(cb); }
-void Channel::setErrorCallback(std::function<void()> cb) { errorCallback_ = std::move(cb); }
+void Channel::setReadCallback(std::function<void(Timestamp)> &&cb) { readCallback_ = std::move(cb); }
+void Channel::setWriteCallback(std::function<void()> &&cb) { writeCallback_ = std::move(cb); }
+void Channel::setCloseCallback(std::function<void()> &&cb) { closeCallback_ = std::move(cb); }
+void Channel::setErrorCallback(std::function<void()> &&cb) { errorCallback_ = std::move(cb); }
 
 void Channel::tie(const std::shared_ptr<void> &obj)
 {

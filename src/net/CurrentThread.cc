@@ -14,7 +14,7 @@ namespace CurrentThread
     }
 
     // 返回Tid
-    int tid()
+    int getTid()
     {
         if (__builtin_expect(t_cachedTid == 0, 0))
             cacheTid();

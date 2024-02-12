@@ -19,10 +19,10 @@ public:
 
     // 设置回调函数
     //???为什么readcallback参数需要加Timestamp
-    void setReadCallback(std::function<void(Timestamp)> cb);
-    void setWriteCallback(std::function<void()> cb);
-    void setCloseCallback(std::function<void()> cb);
-    void setErrorCallback(std::function<void()> cb);
+    void setReadCallback(std::function<void(Timestamp)> &&cb);
+    void setWriteCallback(std::function<void()> &&cb);
+    void setCloseCallback(std::function<void()> &&cb);
+    void setErrorCallback(std::function<void()> &&cb);
 
     /**
      * 当一个TcpConnection新连接创建时，将新连接和channel所绑定
