@@ -70,6 +70,7 @@ void Channel::handleEventWithGuard(Timestamp receiveTime)
 {
     LOG_INFO("channel handleEvent revents:%d\n", revents_);
     //???为什么不用清空回调函数
+    //!!!回调函数是每次发生对应事件都要执行的 不是一次性的
 
     // 发生了挂起事件且没有可读事件且有相应回调函数
     if ((revents_ & EPOLLHUP) && !(revents_ & EPOLLIN) && closeCallback_)
