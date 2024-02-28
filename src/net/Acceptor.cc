@@ -30,7 +30,7 @@ Acceptor::~Acceptor()
     acceptChannel_.disableAll();
     acceptChannel_.remove();
 }
-
+// 绑定TcpServer::newConnection
 void Acceptor::setNewConnectionCallback(const NewConnectionCallBack &cb) { newConnectionCallBack_ = cb; }
 
 bool Acceptor::isListenning() const { return listenning_; }
@@ -44,13 +44,13 @@ void Acceptor::listen()
 void Acceptor::handleRead()
 {
     InetAddress peerAddr; // 客户端地址
-    int connfd = acceptSocket_.accept(&peerAddr);
-    if (connfd >= 0)
+    int sockfd = acceptSocket_.accept(&peerAddr);
+    if (sockfd >= 0)
     {
         if (newConnectionCallBack_)
-            newConnectionCallBack_(connfd, peerAddr); // 轮询找到subLoop，唤醒，分发当前的新客户端的Channel???轮询在哪里
+            newConnectionCallBack_(sockfd, peerAddr); // 轮询找到subLoop，唤醒，分发当前的新客户端的Channel???轮询在哪里!!!newConnectionCallBack(TcpServer::newConnection)里
         else
-            ::close(connfd);
+            ::close(sockfd);
     }
     else
     {

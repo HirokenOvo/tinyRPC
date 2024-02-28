@@ -50,11 +50,11 @@ void TcpConnection::connectEstablished()
     connectionCallback_(shared_from_this()); // 新连接建立,执行回调
 }
 // 发送数据
-void TcpConnection::send(const std::string &buf)
+void TcpConnection::send(const std::string &message)
 {
     if (isConnected())
     {
-        auto func{std::bind(&TcpConnection::sendInLoop, this, buf.c_str(), buf.size())};
+        auto func{std::bind(&TcpConnection::sendInLoop, this, message.c_str(), message.size())};
         loop_->runInLoop(func);
     }
 }
@@ -70,9 +70,15 @@ void TcpConnection::sendInLoop(const void *message, size_t len)
         LOG_ERROR("disconnected, give up writing!");
         return;
     }
-    // channel_第一次开始写数据,且缓冲区没有待发送数据
-    if (!channel_->isWriting() && outputBuffer_.readableBytes() == 0)
+    /**
+     *  !canWriting()代表之前不关注写事件,poller之前没有注册过写事件,本次是第一次写,
+     *  否则可能导致之前数据没发完就接上本次数据导致数据发送混乱
+     *  !readableBytes()缓冲区代表没有待发送数据
+     */
+    if (!channel_->canWriting() && !outputBuffer_.readableBytes())
     {
+        //???为什么不需要先设置enableWriting
+        //!!!enableWriting代表接下来poller关注该fd的可写事件,现在已经能写了就立即执行不需要poller返回
         nwrote = ::write(channel_->getFd(), message, len);
         if (nwrote >= 0)
         {
@@ -100,8 +106,8 @@ void TcpConnection::sendInLoop(const void *message, size_t len)
     }
 
     /**
-     * 说明当前这一次write并没有把数据全部发送出去,剩余的数据需要保存到缓冲区当中并给channel注册epollout事件
-     * poller发现tcp的发送缓冲区有空间,会通知相应的sock-channel调用writeCallback_回调方法
+     * 说明这一次write并没有把数据全部发送出去,剩余的数据需要保存到缓冲区当中并给channel注册epollout事件
+     * poller发现tcp的发送缓冲区有空间,会通知相应的sockChannel调用writeCallback_回调方法
      * 也就是调用TcpConnection::handleWrite方法,把发送缓冲区中的数据全部发送完成
      */
     if (!faultError && remaining > 0)
@@ -113,12 +119,18 @@ void TcpConnection::sendInLoop(const void *message, size_t len)
             loop_->queueInLoop(std::bind(highWaterMarkCallback_, shared_from_this(), oldLen + remaining));
 
         outputBuffer_.append((char *)message + nwrote, remaining);
-        if (!channel_->isWriting())
+        if (!channel_->canWriting())
             channel_->enableWriting(); // 如果不注册channel的写事件,poller不会给channel通知epollout
+                                       //???如何触发poller对于该可写事件的epoll_wait返回
+                                       /**
+                                        * !!!epoll_wait返回时即fd可写,即往fd写数据时不会被阻塞
+                                        * nwrote是当前fd可写的上限,仍有remaining说明 总的待发送数据大于可发送数据
+                                        * 待fd可写时即epoll_wait返回时,执行handleWrite回调
+                                        */
     }
 }
 
-// 关闭连接
+// 关闭写端,仍可接收 半关闭状态,防止数据漏收
 void TcpConnection::shutdown()
 {
     if (isConnected())
@@ -130,7 +142,7 @@ void TcpConnection::shutdown()
 }
 void TcpConnection::shutdownInLoop()
 {
-    if (!channel_->isWriting())   // 说明outputBuffer中的数据已经全部发送完毕
+    if (!channel_->canWriting())  // 说明outputBuffer中的数据已经全部发送完毕
         socket_->shutdownWrite(); // 关闭写端通知对方没有数据要发送,仍可读取对方数据,处于半关闭连接状态
 }
 
@@ -145,15 +157,25 @@ void TcpConnection::connectDestroyed()
     }
     channel_->remove(); // 把channel从poller中删除掉
 }
-
+/**
+ * 把TCP内核可读缓冲区的数据读入到inputBuffer_中，以腾出TCP内核可读缓冲区，避免反复触发EPOLLIN事件（可读事件），
+ * 同时执行用户自定义的消息到来时候的回调函数messageCallback_
+ */
 void TcpConnection::handleRead(Timestamp receiveTime)
 {
+    // TCPsocket在连接建立后,通常会一直处于可读状态(TcpConnection::connectEstablished时已经enableReading),
+    // 因此不需要判断channel_->canReading()
     int savedErrno = 0;
     ssize_t n = inputBuffer_.readFd(channel_->getFd(), &savedErrno);
     if (n > 0)
         // 有可读事件发生,调用用户传入的回调操作
         messageCallback_(shared_from_this(), &inputBuffer_, receiveTime);
-    else if (!n)
+    else if (!n) //???为什么没数据就是对方主动关闭连接,不能长连接一段时间不发隔一段时间再发吗
+                 /**
+                  *  !!!epoll_wait对于可读事件只有在有数据的情况下返回
+                  *     因此0字节数据不是代表没有数据发送,而是发送了空数据包/FIN数据包/已关闭连接
+                  *     muduo简化处理逻辑将其视为关闭连接
+                  */
         handleClose();
     else
     {
@@ -162,20 +184,20 @@ void TcpConnection::handleRead(Timestamp receiveTime)
         handleError();
     }
 }
+// 负责把剩余未发送的数据(即outputBuffer_中的数据)发送出去
 void TcpConnection::handleWrite()
 {
-    // 写入事件判断套接字是否处于写入状态，以避免不必要的写入操作导致的问题，
-    // TCP套接字在连接建立后，通常会一直处于可读状态,因此不需要额外的判断
-    if (channel_->isWriting())
+    // 如果该channel_在poller上注册了可写事件
+    if (channel_->canWriting())
     {
         int savedErrno = 0;
         ssize_t n = outputBuffer_.writeFd(channel_->getFd(), &savedErrno);
         if (n > 0)
         {
-            outputBuffer_.retrieve(n);
+            outputBuffer_.retrieve(n); // n个字节已发出,因此将readerIndex移动n个字节
             if (outputBuffer_.readableBytes() == 0)
             {
-                channel_->disableWriting();
+                channel_->disableWriting(); // buffer中的数据发送完毕,在poller中注销写事件防止频繁触发(否则fd可写会一直触发epoll_wait返回)
                 if (writeCompleteCallback_)
                     loop_->queueInLoop(std::bind(writeCompleteCallback_, shared_from_this()));
 

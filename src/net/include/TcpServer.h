@@ -54,7 +54,7 @@ private:
 
     std::shared_ptr<EventLoopThreadPool> threadPool_;
 
-    std::atomic_int started_;
+    std::atomic_bool started_;
 
     int nextConnId_;
     using ConnectionMap = std::unordered_map<std::string, TcpConnectionSPtr>;

@@ -42,9 +42,9 @@ public:
     bool isInLoopThread() const;
 
 private:
-    // wake up
+    // 处理wake up的回调函数
     void handleRead();
-    // 执行回调
+    // 执行跨线程调用函数
     void doPendingFunctors();
 
     std::atomic_bool looping_;

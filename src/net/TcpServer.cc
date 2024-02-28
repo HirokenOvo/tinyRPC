@@ -22,7 +22,7 @@ TcpServer::TcpServer(EventLoop *loop,
       ipPort_{listenAddr.toIpPort()}, name_{namePre},
       acceptor_{std::make_unique<Acceptor>(loop_, listenAddr, option == kReusePort)},
       threadPool_{std::make_shared<EventLoopThreadPool>(loop_, namePre)},
-      started_{0},
+      started_{false},
       nextConnId_{1}
 {
     // 有用户连接时,会执行TcpServer::newConnection回调
@@ -42,8 +42,9 @@ TcpServer::~TcpServer()
 // 开启服务器监听 loop.loop()
 void TcpServer::start()
 {
-    if (started_++ == 0) // 防止TcpServer被start多次
+    if (!started_) // 防止TcpServer被start多次
     {
+        started_ = true;
         threadPool_->start(threadInitCallback_);
         loop_->runInLoop(std::bind(&Acceptor::listen, acceptor_.get()));
     }
@@ -51,8 +52,6 @@ void TcpServer::start()
 
 void TcpServer::newConnection(int sockfd, const InetAddress &peerAddr)
 {
-    // 轮询选择一个subLoop来管理channel
-    EventLoop *ioLoop = threadPool_->getNextLoop();
     char buf[64] = {0};
     snprintf(buf, sizeof buf, "-%s#%d", ipPort_.c_str(), nextConnId_++);
 
@@ -68,7 +67,8 @@ void TcpServer::newConnection(int sockfd, const InetAddress &peerAddr)
         LOG_ERROR("sockets::getLocalAddr");
 
     InetAddress localAddr{local};
-
+    // 轮询选择一个subLoop来管理channel
+    EventLoop *ioLoop = threadPool_->getNextLoop();
     // 根据连接成功的sockfd,创建TcpConnection连接对象
     TcpConnectionSPtr conn = std::make_shared<TcpConnection>(ioLoop, connName, sockfd, localAddr, peerAddr);
     connections_[connName] = conn;
@@ -78,7 +78,7 @@ void TcpServer::newConnection(int sockfd, const InetAddress &peerAddr)
     conn->setMessageCallback(messageCallback_);
     conn->setWriteCompleteCallback(writeCompleteCallback_);
 
-    // 设置如何关闭连接的回调 conn->shutDown()
+    // 设置如何关闭连接的回调 conn->connectDestroyed()
     conn->setCloseCallback(std::bind(&TcpServer::removeConnection, this, std::placeholders::_1));
 
     // 直接调用TcpConnection::connectEstablished

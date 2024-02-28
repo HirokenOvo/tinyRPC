@@ -42,8 +42,6 @@ EventLoop::EventLoop()
     // 设置wakeupfd的事件类型以及发生事件后的回调操作
     // ???为什么不用timestamp参数:::bind参数没有占位符 所以std::fuction里参数有多少都无所谓 但是调用的时候要满足std::function声明的参数数量 然后全没用全被忽略了
     wakeupChannel_->setReadCallback(std::bind(&EventLoop::handleRead, this));
-    // wakeupChannel_->setReadCallback([this]()
-    //                                 { this->handleRead(); });
     wakeupChannel_->enableReading();
 }
 EventLoop ::~EventLoop()
@@ -69,9 +67,30 @@ void EventLoop::loop()
             channel->handleEvent(pollReturnTime_);
 
         //???已经处理过事件了 这里的functors是什么
+        /*
+        !!! 其他线程想要调用本线程的函数 简称为 未执行函数
+            PendingFunctors是未执行函数的集合,
+            wakeup的目的只是加速poll返回,handleEvent处理的是wakup的回调函数而不是未执行函数
+            doPendingFunctors才是处理未执行函数
+        */
         doPendingFunctors();
     }
     LOG_INFO("EventLoop %p stop looping. \n", this);
+}
+
+void EventLoop::doPendingFunctors()
+{
+    callingPendingFunctors_ = true;
+
+    std::vector<std::function<void()>> functors;
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        functors.swap(pendingFunctors_);
+    }
+    for (auto &functor : functors)
+        functor();
+
+    callingPendingFunctors_ = false;
 }
 
 void EventLoop::quit()
@@ -127,18 +146,3 @@ void EventLoop::removeChannel(Channel *channel) { poller_->removeChannel(channel
 bool EventLoop::hasChannel(Channel *channel) { return poller_->hasChannel(channel); }
 
 bool EventLoop::isInLoopThread() const { return threadId_ == CurrentThread::getTid(); }
-
-void EventLoop::doPendingFunctors()
-{
-    callingPendingFunctors_ = true;
-
-    std::vector<std::function<void()>> functors;
-    {
-        std::unique_lock<std::mutex> lock(mutex_);
-        functors.swap(pendingFunctors_);
-    }
-    for (auto &functor : functors)
-        functor();
-
-    callingPendingFunctors_ = false;
-}

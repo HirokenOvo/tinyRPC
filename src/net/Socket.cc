@@ -35,7 +35,7 @@ int Socket::accept(InetAddress *peeraddr)
     sockaddr_in addr;
     socklen_t addrlen = sizeof addr;
     bzero(&addr, sizeof addr);
-
+    // SOCK_NONBLOCK 在调用I/O操作时,若操作无法立即完成,不会阻塞进程,而是返回一个错误码
     int connfd = ::accept4(sockfd_, (sockaddr *)&addr, &addrlen, SOCK_NONBLOCK | SOCK_CLOEXEC);
     if (connfd >= 0)
         peeraddr->setSockAddr(addr);

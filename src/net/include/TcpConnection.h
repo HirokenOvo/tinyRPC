@@ -12,6 +12,7 @@ class Channel;
 class EventLoop;
 class Socket;
 
+// 管理连接connChannel,
 class TcpConnection : uncopyable, public std::enable_shared_from_this<TcpConnection>
 {
 public:
@@ -30,7 +31,7 @@ public:
     bool isConnected() const;
 
     // 发送数据
-    void send(const std::string &buf);
+    void send(const std::string &message);
     // 关闭连接
     void shutdown();
 
