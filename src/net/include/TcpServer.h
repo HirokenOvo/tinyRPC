@@ -7,7 +7,7 @@
 #include "EventLoopThreadPool.h"
 #include "InetAddress.h"
 #include "TcpConnection.h"
-#include "uncopyable.h"
+#include "../../comm/include/uncopyable.h"
 
 #include <functional>
 #include <unordered_map>

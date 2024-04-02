@@ -1,6 +1,6 @@
 #pragma once
 
-#include "uncopyable.h"
+#include "../../comm/include/uncopyable.h"
 #include "Socket.h"
 #include "Channel.h"
 

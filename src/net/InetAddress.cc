@@ -1,4 +1,4 @@
-#include "include/InetAddress.h"
+#include "InetAddress.h"
 
 #include <strings.h>
 #include <string.h>

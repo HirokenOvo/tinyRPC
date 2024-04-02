@@ -1,5 +1,5 @@
-#include "include/Thread.h"
-#include "include/CurrentThread.h"
+#include "Thread.h"
+#include "CurrentThread.h"
 
 #include <memory>
 #include <semaphore.h>

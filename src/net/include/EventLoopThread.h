@@ -1,6 +1,6 @@
 #pragma once
 
-#include "uncopyable.h"
+#include "../../comm/include/uncopyable.h"
 #include "Thread.h"
 
 #include <mutex>

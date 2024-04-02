@@ -1,7 +1,7 @@
 #pragma once
 
 #include "EventLoopThread.h"
-#include "uncopyable.h"
+#include "../../comm/include/uncopyable.h"
 
 #include <functional>
 #include <memory>

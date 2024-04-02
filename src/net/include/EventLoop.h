@@ -6,8 +6,8 @@
 #include <vector>
 #include <mutex>
 
-#include "uncopyable.h"
-#include "Timestamp.h"
+#include "../../comm/include/uncopyable.h"
+#include "../../comm/include/Timestamp.h"
 #include "CurrentThread.h"
 
 class Channel;

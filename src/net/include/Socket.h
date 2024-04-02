@@ -1,6 +1,6 @@
 #pragma once
 
-#include "uncopyable.h"
+#include "../../comm/include/uncopyable.h"
 
 class InetAddress;
 

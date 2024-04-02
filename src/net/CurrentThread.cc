@@ -1,7 +1,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 
-#include "include/CurrentThread.h"
+#include "CurrentThread.h"
 
 namespace CurrentThread
 {
