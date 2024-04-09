@@ -1,0 +1,27 @@
+syntax="proto3";
+
+package example;
+
+option cc_generic_services = true;
+
+message ResultCode
+{
+    int32 errCode=1;
+    bytes errMsg=2;
+}
+
+message Request
+{
+    bytes msg=1;
+}
+
+message Response
+{
+    ResultCode resultCode=1;
+    bytes handledMsg=2;
+}
+
+service ServiceRpc
+{
+    rpc Get(Request)returns(Response);
+}

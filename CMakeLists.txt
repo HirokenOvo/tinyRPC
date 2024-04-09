@@ -15,9 +15,11 @@ SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin)
 # 设置库文件的输出目录
 SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 
-include_directories(${PROJECT_SOURCE_DIR}/src/comm/include
-                    ${PROJECT_SOURCE_DIR}/src/net/include
-)
+# include_directories(${PROJECT_SOURCE_DIR}/src/comm/include
+#                     ${PROJECT_SOURCE_DIR}/src/net/include
+#                     ${PROJECT_SOURCE_DIR}/src/rpc/include
+# )
 
 # 添加 myMuduo 子项目
 add_subdirectory(src)
+add_subdirectory(examples)

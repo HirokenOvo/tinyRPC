@@ -1,0 +1,38 @@
+syntax="proto3";
+
+package tinyRPC;
+
+// message RpcHeader
+// {
+//     bytes service_name=1;
+//     bytes method_name=2;
+//     uint32 args_size=3;
+// }
+
+// 消息类型
+enum MessageType
+{
+	RPC_TYPE_UNKNOWN 			= 0;
+	RPC_TYPE_REQUEST 			= 1;
+	RPC_TYPE_RESPONSE 			= 2;
+	RPC_TYPE_ERROR 				= 3;
+}
+
+// error_type
+enum ErrorCode
+{
+	RPC_ERR_OK 					= 0;
+	RPC_ERR_NO_SERVICE 			= 1;
+	RPC_ERR_NO_METHOD 			= 2;
+	RPC_ERR_INVALID_REQUEST 	= 3;
+	RPC_ERR_INVALID_RESPONSE 	= 4;
+}
+
+message RpcHeader
+{
+	MessageType type 	 		= 1;	// 消息类型
+	bytes service_name   		= 2;	// 服务名称
+	bytes method_name    		= 3;	// 方法名称
+	ErrorCode error  	 		= 4;	// error_type
+    uint32 args_size	 		= 5;   // rpc数据长度
+}

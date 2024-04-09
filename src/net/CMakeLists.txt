@@ -9,4 +9,7 @@ aux_source_directory(. SRC_LIST)
 #     Logger.cc
 #     Timestamp.cc)
 add_library(Net ${SRC_LIST})
-target_link_libraries(Net)
+
+target_include_directories(Net PUBLIC ./include)
+
+target_link_libraries(Net PUBLIC Comm)
