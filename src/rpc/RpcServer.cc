@@ -1,10 +1,11 @@
-#include "RpcServer.h"
 #include "Logger.h"
+#include "zookeeperUtil.h"
+#include "RpcServer.h"
 #include "RpcHeader.pb.h"
 #include <google/protobuf/descriptor.h>
 
-RpcServer::RpcServer(EventLoop *loop, const InetAddress &listenAddr, int numThreads)
-    : server_(loop, listenAddr, "RpcServer")
+RpcServer::RpcServer(int numThreads)
+    : server_(&evtLoop_, InetAddress{static_cast<uint16_t>(atoi(Config::getCfg("serv_port").c_str())), Config::getCfg("serv_ip")}, "RpcServer")
 {
     server_.setConnectionCallback(std::bind(&RpcServer::onConnection, this, std::placeholders::_1));
     server_.setMessageCallback(std::bind(&RpcServer::onMessage, this,
@@ -45,10 +46,28 @@ void RpcServer::registerService(google::protobuf::Service *serv)
 
 void RpcServer::start()
 {
-    /*
-    FIXME:在zookeeper上注册所有服务
-    */
+    // 在zookeeper上注册所有服务
+    std::string ip = Config::getCfg("serv_ip");
+    std::string port = Config::getCfg("serv_port");
+    std::string addr = ip + ":" + port;
+
+    ZkClient zkCli;
+    zkCli.start(ZooLogLevel::ZOO_LOG_LEVEL_ERROR);
+    // service_name 为永久性节点 method_name 为临时性节点
+    for (const auto &[serv_name, serv_info] : servicesMap_)
+    {
+        std::string serv_path = "/" + serv_name;
+        zkCli.create(serv_path.c_str(), nullptr, -1);
+        for (const auto &[method_name, _] : serv_info.methodsMap_)
+        {
+            std::string method_path = serv_path + "/" + method_name;
+            zkCli.create(method_path.c_str(), addr.c_str(), addr.size(), ZOO_EPHEMERAL);
+        }
+    }
+    LOG_INFO("RpcServer start service at address[%s]", addr.c_str());
+
     server_.start();
+    evtLoop_.loop();
 }
 
 void RpcServer::onConnection(const TcpConnectionSPtr &conn)

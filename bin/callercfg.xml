@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<root>
+  <zookeeper>
+      <zk_ip>127.0.0.1</zk_ip>
+      <zk_port>2181</zk_port>
+  </zookeeper>
+</root>

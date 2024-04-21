@@ -23,3 +23,5 @@ SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
 # 添加 myMuduo 子项目
 add_subdirectory(src)
 add_subdirectory(examples)
+add_subdirectory(thirdparty)
+add_subdirectory(test)

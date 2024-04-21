@@ -24,4 +24,5 @@ message Response
 service ServiceRpc
 {
     rpc Get(Request)returns(Response);
+    rpc Add(Request)returns(Response);
 }

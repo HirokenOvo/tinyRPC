@@ -572,6 +572,10 @@ class ServiceRpc : public ::PROTOBUF_NAMESPACE_ID::Service {
                        const ::example::Request* request,
                        ::example::Response* response,
                        ::google::protobuf::Closure* done);
+  virtual void Add(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
+                       const ::example::Request* request,
+                       ::example::Response* response,
+                       ::google::protobuf::Closure* done);
 
   // implements Service ----------------------------------------------
 
@@ -602,6 +606,10 @@ class ServiceRpc_Stub : public ServiceRpc {
   // implements ServiceRpc ------------------------------------------
 
   void Get(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
+                       const ::example::Request* request,
+                       ::example::Response* response,
+                       ::google::protobuf::Closure* done);
+  void Add(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
                        const ::example::Request* request,
                        ::example::Response* response,
                        ::google::protobuf::Closure* done);

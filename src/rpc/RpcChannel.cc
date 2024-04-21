@@ -1,5 +1,6 @@
 #include "RpcChannel.h"
 #include "RpcHeader.pb.h"
+#include "zookeeperUtil.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -67,11 +68,24 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         return;
     }
 
-    /*
-    FIXME:zookeeper获取服务节点的ip:port
-    */
-    std::string ip = "127.0.0.1";
-    uint16_t port = 8000;
+    ZkClient zkCli;
+    zkCli.start(ZooLogLevel::ZOO_LOG_LEVEL_ERROR);
+    std::string method_path = "/" + service_name + "/" + method_name;
+    std::string host_data = zkCli.getData(method_path.c_str());
+    if (host_data == "")
+    {
+        controller->SetFailed(method_path + " is not exist!");
+        return;
+    }
+    int idx = host_data.find(":");
+    if (idx == std::string::npos)
+    {
+        controller->SetFailed(method_path + " address is invalid!");
+        return;
+    }
+
+    std::string ip = host_data.substr(0, idx);
+    uint16_t port = atoi(host_data.substr(idx + 1).c_str());
 
     sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;

@@ -34,5 +34,5 @@ message RpcHeader
 	bytes service_name   		= 2;	// 服务名称
 	bytes method_name    		= 3;	// 方法名称
 	ErrorCode error  	 		= 4;	// error_type
-    uint32 args_size	 		= 5;   // rpc数据长度
+    uint32 args_size	 		= 5;    // rpc数据长度
 }

@@ -109,12 +109,14 @@ const char descriptor_table_protodef_example_2eproto[] PROTOBUF_SECTION_VARIABLE
   "\n\007errCode\030\001 \001(\005\022\016\n\006errMsg\030\002 \001(\014\"\026\n\007Reque"
   "st\022\013\n\003msg\030\001 \001(\014\"G\n\010Response\022\'\n\nresultCod"
   "e\030\001 \001(\0132\023.example.ResultCode\022\022\n\nhandledM"
-  "sg\030\002 \001(\01428\n\nServiceRpc\022*\n\003Get\022\020.example."
-  "Request\032\021.example.ResponseB\003\200\001\001b\006proto3"
+  "sg\030\002 \001(\0142d\n\nServiceRpc\022*\n\003Get\022\020.example."
+  "Request\032\021.example.Response\022*\n\003Add\022\020.exam"
+  "ple.Request\032\021.example.ResponseB\003\200\001\001b\006pro"
+  "to3"
   ;
 static ::_pbi::once_flag descriptor_table_example_2eproto_once;
 const ::_pbi::DescriptorTable descriptor_table_example_2eproto = {
-    false, false, 239, descriptor_table_protodef_example_2eproto,
+    false, false, 283, descriptor_table_protodef_example_2eproto,
     "example.proto",
     &descriptor_table_example_2eproto_once, nullptr, 0, 3,
     schemas, file_default_instances, TableStruct_example_2eproto::offsets,
@@ -813,6 +815,14 @@ void ServiceRpc::Get(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
   done->Run();
 }
 
+void ServiceRpc::Add(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
+                         const ::example::Request*,
+                         ::example::Response*,
+                         ::google::protobuf::Closure* done) {
+  controller->SetFailed("Method Add() not implemented.");
+  done->Run();
+}
+
 void ServiceRpc::CallMethod(const ::PROTOBUF_NAMESPACE_ID::MethodDescriptor* method,
                              ::PROTOBUF_NAMESPACE_ID::RpcController* controller,
                              const ::PROTOBUF_NAMESPACE_ID::Message* request,
@@ -822,6 +832,14 @@ void ServiceRpc::CallMethod(const ::PROTOBUF_NAMESPACE_ID::MethodDescriptor* met
   switch(method->index()) {
     case 0:
       Get(controller,
+             ::PROTOBUF_NAMESPACE_ID::internal::DownCast<const ::example::Request*>(
+                 request),
+             ::PROTOBUF_NAMESPACE_ID::internal::DownCast<::example::Response*>(
+                 response),
+             done);
+      break;
+    case 1:
+      Add(controller,
              ::PROTOBUF_NAMESPACE_ID::internal::DownCast<const ::example::Request*>(
                  request),
              ::PROTOBUF_NAMESPACE_ID::internal::DownCast<::example::Response*>(
@@ -840,6 +858,8 @@ const ::PROTOBUF_NAMESPACE_ID::Message& ServiceRpc::GetRequestPrototype(
   switch(method->index()) {
     case 0:
       return ::example::Request::default_instance();
+    case 1:
+      return ::example::Request::default_instance();
     default:
       GOOGLE_LOG(FATAL) << "Bad method index; this should never happen.";
       return *::PROTOBUF_NAMESPACE_ID::MessageFactory::generated_factory()
@@ -852,6 +872,8 @@ const ::PROTOBUF_NAMESPACE_ID::Message& ServiceRpc::GetResponsePrototype(
   GOOGLE_DCHECK_EQ(method->service(), descriptor());
   switch(method->index()) {
     case 0:
+      return ::example::Response::default_instance();
+    case 1:
       return ::example::Response::default_instance();
     default:
       GOOGLE_LOG(FATAL) << "Bad method index; this should never happen.";
@@ -876,6 +898,13 @@ void ServiceRpc_Stub::Get(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
                               ::example::Response* response,
                               ::google::protobuf::Closure* done) {
   channel_->CallMethod(descriptor()->method(0),
+                       controller, request, response, done);
+}
+void ServiceRpc_Stub::Add(::PROTOBUF_NAMESPACE_ID::RpcController* controller,
+                              const ::example::Request* request,
+                              ::example::Response* response,
+                              ::google::protobuf::Closure* done) {
+  channel_->CallMethod(descriptor()->method(1),
                        controller, request, response, done);
 }
 

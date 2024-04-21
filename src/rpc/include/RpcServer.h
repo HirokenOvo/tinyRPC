@@ -1,12 +1,13 @@
 #pragma once
 
+#include "Config.h"
 #include "TcpServer.h"
 #include "google/protobuf/service.h"
 
 class RpcServer
 {
 public:
-    RpcServer(EventLoop *loop, const InetAddress &listenAddr, int numThreads);
+    RpcServer(int numThreads);
 
     void registerService(google::protobuf::Service *);
 
@@ -23,6 +24,7 @@ private:
     void sendErrorResponse(const TcpConnectionSPtr &conn, const std::string &error_msg);
     void setThreadNum(int numThreads);
 
+    EventLoop evtLoop_;
     TcpServer server_;
     struct ServiceInfo
     {
