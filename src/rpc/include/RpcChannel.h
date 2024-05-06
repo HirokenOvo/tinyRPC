@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Config.h"
+#include <zookeeper/zookeeper.h>
 #include <google/protobuf/service.h>
 #include <google/protobuf/descriptor.h>
 #include <google/protobuf/message.h>
@@ -13,4 +14,7 @@ public:
                     const google::protobuf::Message *request,
                     google::protobuf::Message *response,
                     google::protobuf::Closure *done);
+    // FIXME : 添加cache
+    // private:
+    // static std::map<std::string, struct String_vector> host_list_cache_;
 };

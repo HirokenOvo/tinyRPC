@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+// std::map<std::string, struct String_vector> RpcChannel::host_list_cache_;
+
 void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
                             google::protobuf::RpcController *controller,
                             const google::protobuf::Message *request,
@@ -71,7 +73,10 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     ZkClient zkCli;
     zkCli.start(ZooLogLevel::ZOO_LOG_LEVEL_ERROR);
     std::string method_path = "/" + service_name + "/" + method_name;
+
     std::string host_data = zkCli.getData(method_path.c_str());
+    // FIXME:添加cache
+    // std::string host_data = zkCli.getData(method_path.c_str(), &host_list_cache_);
     if (host_data == "")
     {
         controller->SetFailed(method_path + " is not exist!");

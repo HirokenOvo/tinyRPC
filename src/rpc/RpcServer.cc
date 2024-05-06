@@ -47,6 +47,7 @@ void RpcServer::registerService(google::protobuf::Service *serv)
 void RpcServer::start()
 {
     // 在zookeeper上注册所有服务
+    // FIXME:注册服务设置为定期任务，定期向zookeeper汇报本机的cpu和内存使用量
     std::string ip = Config::getCfg("serv_ip");
     std::string port = Config::getCfg("serv_port");
     std::string addr = ip + ":" + port;
@@ -60,8 +61,10 @@ void RpcServer::start()
         zkCli.create(serv_path.c_str(), nullptr, -1);
         for (const auto &[method_name, _] : serv_info.methodsMap_)
         {
-            std::string method_path = serv_path + "/" + method_name;
-            zkCli.create(method_path.c_str(), addr.c_str(), addr.size(), ZOO_EPHEMERAL);
+            std::string method_Ppath = serv_path + "/" + method_name;
+            zkCli.create(method_Ppath.c_str(), nullptr, -1);
+            std::string method_Tpath = serv_path + "/" + method_name + "/" + method_name;
+            zkCli.create(method_Tpath.c_str(), addr.c_str(), addr.size(), ZOO_EPHEMERAL | ZOO_SEQUENCE);
         }
     }
     LOG_INFO("RpcServer start service at address[%s]", addr.c_str());

@@ -2,6 +2,7 @@
 #include "Config.h"
 #include "Logger.h"
 #include <semaphore.h>
+static void getChildrenListwatcher(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx);
 
 void global_watcher(zhandle_t *zh, int type,
                     int state, const char *path, void *watcherCtx)
@@ -76,16 +77,67 @@ void ZkClient::create(const char *path, const char *data, int datalen, int state
     }
 }
 
+static void getChildrenList(zhandle_t *zh, const char *path, void *watcherCtx)
+{
+    struct String_vector strings;
+    std::cout << path << std::endl;
+    int rc = zoo_wget_children(zh, path, getChildrenListwatcher, watcherCtx, &strings);
+    if (rc == ZOK)
+    {
+        // 将子节点列表更新给watcherCtx
+        std::map<std::string, struct String_vector> *mp = static_cast<std::map<std::string, struct String_vector> *>(watcherCtx);
+        (*mp)[std::string(path)] = strings;
+
+        // FIXME:释放内存怎么解决
+        // deallocate_String_vector(&strings);
+    }
+    else
+    {
+        fprintf(stderr, "Failed to get children list: [%s]\n", zerror(rc));
+    }
+}
+
 // 根据参数指定的znode节点路径获得znode的值
 std::string ZkClient::getData(const char *path)
+// std::string ZkClient::getData(const char *path, std::map<std::string, struct String_vector> *cacheMp)
 {
+    // FIXME:添加cache,通过watcher通知服务端变化
+    // getChildrenList(zhandle_, path, nullptr);
+    // const auto &strVec = (*cacheMp)[std::string(path)];
+    struct String_vector strVec;
+    int rc = zoo_wget_children(zhandle_, path, nullptr, nullptr, &strVec);
+    if (rc != ZOK)
+        fprintf(stderr, "Failed to get children list: [%s]\n", zerror(rc));
+    // TODO:负载均衡的策略
+    int idx = rand() % strVec.count;
+    std::string fpath = std::string(path) + "/" + std::string(strVec.data[idx]);
+
     char buf[64];
     int buflen = sizeof(buf);
-    int flag = zoo_get(zhandle_, path, 0, buf, &buflen, nullptr);
+    int flag = zoo_get(zhandle_, fpath.c_str(), 0, buf, &buflen, nullptr);
     if (flag != ZOK)
     {
         LOG_ERROR("get znode error... path[%s]", path);
         return "";
     }
     return buf;
+}
+
+// FIXME:添加cache,通过watcher通知服务端变化
+static void getChildrenListwatcher(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx)
+{
+    std::cout << type << std::endl;
+    if (type == ZOO_CHILD_EVENT)
+    {
+        printf("Watcher triggered for path: [%s]\n", path);
+
+        // 重新获取子节点列表
+        getChildrenList(zh, path, watcherCtx);
+        std::map<std::string, struct String_vector> *mp = static_cast<std::map<std::string, struct String_vector> *>(watcherCtx);
+
+        const auto &strings = (*mp)[std::string(path)];
+        printf("Updated children list:\n");
+        for (int i = 0; i < strings.count; ++i)
+            printf("%s\n", strings.data[i]);
+    }
 }
