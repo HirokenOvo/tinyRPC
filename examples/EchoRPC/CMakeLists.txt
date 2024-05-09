@@ -1,3 +1,4 @@
+set(EXECUTABLE_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/bin/echo)
 # 设置源文件列表
 set(CALLER_LIST caller.cc example.pb.cc)
 set(CALLEE_LIST callee.cc example.pb.cc)

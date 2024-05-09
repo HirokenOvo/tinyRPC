@@ -1,4 +1,5 @@
 add_subdirectory(EchoRPC)
+add_subdirectory(bench)
 
 # EchoServer
 set(ECHOSERVER_LIST EchoServer.cc)

@@ -9,11 +9,12 @@ class Timestamp
 {
 public:
     Timestamp();
-    explicit Timestamp(int64_t microSecondsSinceEpoch);
+    explicit Timestamp(int64_t secondsSinceEpoch);
     static Timestamp now();
     std::string toString() const;
     std::string getYMD() const;
+    int64_t secondsSinceEpoch() const { return secondsSinceEpoch_; }
 
 private:
-    int64_t microSecondsSinceEpoch_;
+    int64_t secondsSinceEpoch_;
 };
