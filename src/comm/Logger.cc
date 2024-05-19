@@ -20,7 +20,7 @@ Logger::Logger()
         fputs(msg.c_str(), pf);
         fclose(pf);
     } });
-
+    // FIXME: detach后线程不结束，程序无法退出
     writeLogTask.detach();
 }
 

@@ -1,20 +1,47 @@
 #include "RpcChannel.h"
 #include "RpcHeader.pb.h"
 #include "zookeeperUtil.h"
+#include "WriteFstMp.h"
+#include "LockQueue.h"
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <thread>
+#include <atomic>
 
-// std::map<std::string, struct String_vector> RpcChannel::host_list_cache_;
+// static WriteFstMp<std::string, std::unique_ptr<LockQueue<std::string>>> host_list_cache;
+static WriteFstMp<std::string, std::pair<struct String_vector, int>> host_list_cache;
 
 void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
-                            google::protobuf::RpcController *controller,
+                            RpcController *controller,
                             const google::protobuf::Message *request,
                             google::protobuf::Message *response,
-                            google::protobuf::Closure *done)
+                            google::protobuf::Closure *done,
+                            int cnt)
 {
+    if (cnt)
+    {
+        printf("Rpc call %dth Failed,trying reconnecting...\n", cnt);
+        std::cout << controller->ErrorText() << std::endl;
+        switch (cnt)
+        {
+        case 1:
+            std::this_thread::sleep_for(std::chrono::seconds(2));
+            break;
+        case 2:
+            std::this_thread::sleep_for(std::chrono::seconds(4));
+            break;
+        case 3:
+            std::this_thread::sleep_for(std::chrono::seconds(8));
+            break;
+        default:
+            if (controller)
+                controller->SetMsg(controller->ErrorText());
+            return;
+        }
+    }
     const google::protobuf::ServiceDescriptor *servDesc = method->service();
     std::string service_name = servDesc->name();
     std::string method_name = method->name();
@@ -26,7 +53,9 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         args_size = args_str.size();
     else
     {
-        controller->SetFailed("Serialize Request Failed!");
+        if (controller)
+            controller->SetMsg("Serialize Request Failed!");
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
@@ -44,7 +73,9 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         header_size = header_str.size();
     else
     {
-        controller->SetFailed("Serialize Request Rpc Header Failed!");
+        if (controller)
+            controller->SetMsg("Serialize Request Rpc Header Failed!");
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
@@ -52,40 +83,66 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     std::string send_rpc_str = std::string(reinterpret_cast<char *>(&header_size), 4);
     send_rpc_str += header_str + args_str;
 
-    // std::cout << "============================================" << std::endl;
-    // std::cout << "header_size: " << header_size << std::endl;
-    // std::cout << "rpc_header_str: " << header_str << std::endl;
-    // std::cout << "service_name: " << service_name << std::endl;
-    // std::cout << "method_name: " << method_name << std::endl;
-    // std::cout << "args_str: " << args_str << std::endl;
-    // std::cout << send_rpc_str.size() << std::endl;
-    // std::cout << "============================================" << std::endl;
-
     int clientfd = socket(AF_INET, SOCK_STREAM, 0);
     if (clientfd == -1)
     {
         char buf[512] = {0};
         sprintf(buf, "Create Socket Failed! Errno:%d", errno);
-        controller->SetFailed(buf);
+        if (controller)
+            controller->SetMsg(buf);
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
-    ZkClient zkCli;
-    zkCli.start(ZooLogLevel::ZOO_LOG_LEVEL_ERROR);
     std::string method_path = "/" + service_name + "/" + method_name;
+    auto linkZk = [&method_path]() -> ZkClient &
+    {
+        static ZkClient zkCli;
+        static std::atomic_bool flag = 0;
 
-    std::string host_data = zkCli.getData(method_path.c_str());
-    // FIXME:添加cache
-    // std::string host_data = zkCli.getData(method_path.c_str(), &host_list_cache_);
+        if (!flag)
+        {
+            flag = 1;
+            zkCli.start(ZooLogLevel::ZOO_LOG_LEVEL_ERROR);
+        }
+        while (!zkCli.exist())
+            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        return zkCli;
+    };
+
+    auto &zkCli = linkZk();
+    auto getHostData = [&zkCli, &method_path](WriteFstMp<std::string, std::pair<struct String_vector, int>> &cache) -> std::string
+    {
+        if (!cache.exist(method_path))
+            zkCli.getChildrenList(method_path.c_str(), &cache);
+        {
+            const auto &[strVec, idx] = cache.get(method_path);
+            if (strVec.count >= idx)
+                zkCli.getChildrenList(method_path.c_str(), &cache);
+        }
+        const auto &[strVec, idx] = cache.get(method_path);
+        std::string path = method_path + "/" + std::string(strVec.data[idx]);
+        return zkCli.getData(path.c_str());
+    };
+    std::string host_data = getHostData(host_list_cache);
+
     if (host_data == "")
     {
-        controller->SetFailed(method_path + " is not exist!");
+        if (controller)
+            controller->SetMsg(method_path + " is not exist!");
+        const auto &[strVec, idx] = host_list_cache.get(method_path);
+        host_list_cache.change(method_path, {strVec, idx + 1});
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
     int idx = host_data.find(":");
     if (idx == std::string::npos)
     {
-        controller->SetFailed(method_path + " address is invalid!");
+        if (controller)
+            controller->SetMsg(method_path + " address is invalid!");
+        const auto &[strVec, idx] = host_list_cache.get(method_path);
+        host_list_cache.change(method_path, {strVec, idx + 1});
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
@@ -103,7 +160,11 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         close(clientfd);
         char buf[512] = {0};
         sprintf(buf, "Connect Failed! Errno:%d", errno);
-        controller->SetFailed(buf);
+        if (controller)
+            controller->SetMsg(buf);
+        const auto &[strVec, idx] = host_list_cache.get(method_path);
+        host_list_cache.change(method_path, {strVec, idx + 1});
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
@@ -113,7 +174,11 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         close(clientfd);
         char buf[512] = {0};
         sprintf(buf, "Send Failed! Errno:%d", errno);
-        controller->SetFailed(buf);
+        if (controller)
+            controller->SetMsg(buf);
+        const auto &[strVec, idx] = host_list_cache.get(method_path);
+        host_list_cache.change(method_path, {strVec, idx + 1});
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
@@ -125,7 +190,9 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         close(clientfd);
         char buf[512] = {0};
         sprintf(buf, "Recv Failed! Errno:%d", errno);
-        controller->SetFailed(buf);
+        if (controller)
+            controller->SetMsg(buf);
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
     // 从字符流前4个字节中读出协议头长度
@@ -143,14 +210,18 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         close(clientfd);
         char buf[512] = {0};
         sprintf(buf, "Response Header_str:%s Parse Failed!", header_str.c_str());
-        controller->SetFailed(buf);
+        if (controller)
+            controller->SetMsg(buf);
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
     if (rpcType == tinyRPC::MessageType::RPC_TYPE_ERROR)
     {
         // FIXME: 考虑递归重传,记录cnt重传次数
-        controller->SetFailed("Rpc Request Error!");
+        if (controller)
+            controller->SetMsg("Rpc Request Error!");
+        CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
 
@@ -164,10 +235,22 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
             close(clientfd);
             char buf[512] = {0};
             sprintf(buf, "Response Parse Failed! Response_str:%s", buf);
-            controller->SetFailed(buf);
+            if (controller)
+                controller->SetMsg(buf);
+            CallMethod(method, controller, request, response, done, cnt + 1);
             return;
         }
     }
 
     close(clientfd);
+}
+
+void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
+                            google::protobuf::RpcController *controller,
+                            const google::protobuf::Message *request,
+                            google::protobuf::Message *response,
+                            google::protobuf::Closure *done)
+{
+
+    CallMethod(method, dynamic_cast<RpcController *>(controller), request, response, done, 0);
 }

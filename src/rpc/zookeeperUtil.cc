@@ -1,7 +1,10 @@
 #include "zookeeperUtil.h"
 #include "Config.h"
 #include "Logger.h"
+#include "WriteFstMp.h"
+
 #include <semaphore.h>
+
 static void getChildrenListwatcher(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx);
 
 void global_watcher(zhandle_t *zh, int type,
@@ -53,6 +56,18 @@ void ZkClient::start(ZooLogLevel logLevel)
     sem_wait(&sem);
     LOG_INFO("zookeeper init success!");
 }
+
+void ZkClient::close()
+{
+    if (zhandle_ != nullptr)
+        zookeeper_close(zhandle_);
+}
+
+bool ZkClient::exist()
+{
+    return zhandle_ != nullptr;
+}
+
 // 在zkserver上根据指定的path创建znode节点
 void ZkClient::create(const char *path, const char *data, int datalen, int state)
 {
@@ -80,13 +95,14 @@ void ZkClient::create(const char *path, const char *data, int datalen, int state
 static void getChildrenList(zhandle_t *zh, const char *path, void *watcherCtx)
 {
     struct String_vector strings;
-    std::cout << path << std::endl;
     int rc = zoo_wget_children(zh, path, getChildrenListwatcher, watcherCtx, &strings);
     if (rc == ZOK)
     {
         // 将子节点列表更新给watcherCtx
-        std::map<std::string, struct String_vector> *mp = static_cast<std::map<std::string, struct String_vector> *>(watcherCtx);
-        (*mp)[std::string(path)] = strings;
+        WriteFstMp<std::string, std::pair<struct String_vector, int>> *mp = static_cast<WriteFstMp<std::string, std::pair<struct String_vector, int>> *>(watcherCtx);
+        std::unique_ptr<LockQueue<struct String_vector>> tptr = std::make_unique<LockQueue<struct String_vector>>();
+
+        mp->change(std::string(path), {strings, 0});
 
         // FIXME:释放内存怎么解决
         // deallocate_String_vector(&strings);
@@ -97,47 +113,37 @@ static void getChildrenList(zhandle_t *zh, const char *path, void *watcherCtx)
     }
 }
 
-// 根据参数指定的znode节点路径获得znode的值
-std::string ZkClient::getData(const char *path)
-// std::string ZkClient::getData(const char *path, std::map<std::string, struct String_vector> *cacheMp)
-{
-    // FIXME:添加cache,通过watcher通知服务端变化
-    // getChildrenList(zhandle_, path, nullptr);
-    // const auto &strVec = (*cacheMp)[std::string(path)];
-    struct String_vector strVec;
-    int rc = zoo_wget_children(zhandle_, path, nullptr, nullptr, &strVec);
-    if (rc != ZOK)
-        fprintf(stderr, "Failed to get children list: [%s]\n", zerror(rc));
-    // TODO:负载均衡的策略
-    int idx = rand() % strVec.count;
-    std::string fpath = std::string(path) + "/" + std::string(strVec.data[idx]);
-
-    char buf[64];
-    int buflen = sizeof(buf);
-    int flag = zoo_get(zhandle_, fpath.c_str(), 0, buf, &buflen, nullptr);
-    if (flag != ZOK)
-    {
-        LOG_ERROR("get znode error... path[%s]", path);
-        return "";
-    }
-    return buf;
-}
-
-// FIXME:添加cache,通过watcher通知服务端变化
 static void getChildrenListwatcher(zhandle_t *zh, int type, int state, const char *path, void *watcherCtx)
 {
-    std::cout << type << std::endl;
     if (type == ZOO_CHILD_EVENT)
     {
         printf("Watcher triggered for path: [%s]\n", path);
 
         // 重新获取子节点列表
         getChildrenList(zh, path, watcherCtx);
-        std::map<std::string, struct String_vector> *mp = static_cast<std::map<std::string, struct String_vector> *>(watcherCtx);
+        WriteFstMp<std::string, std::pair<struct String_vector, int>> *mp = static_cast<WriteFstMp<std::string, std::pair<struct String_vector, int>> *>(watcherCtx);
 
-        const auto &strings = (*mp)[std::string(path)];
+        const auto &strings = mp->get(std::string(path)).first;
         printf("Updated children list:\n");
         for (int i = 0; i < strings.count; ++i)
             printf("%s\n", strings.data[i]);
     }
+};
+void ZkClient::getChildrenList(const char *path, void *watcherCtx)
+{
+    ::getChildrenList(zhandle_, path, watcherCtx);
+}
+
+// 根据参数指定的znode节点路径获得znode的值
+std::string ZkClient::getData(const char *path)
+{
+    char buf[64];
+    int buflen = sizeof(buf);
+    int flag = zoo_get(zhandle_, path, 0, buf, &buflen, nullptr);
+    if (flag != ZOK)
+    {
+        LOG_ERROR("get znode error... path[%s]", path);
+        return "";
+    }
+    return buf;
 }

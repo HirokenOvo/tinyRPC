@@ -5,6 +5,30 @@
 
 #include <memory>
 #include <strings.h>
+#include <signal.h>
+#include <mutex>
+
+class InterruptibleSleeper
+{
+public:
+    // returns false if killed:
+    void wait()
+    {
+        std::unique_lock<std::mutex> lock(m);
+        cv.wait(lock);
+    }
+
+    void interrupt()
+    {
+        std::unique_lock<std::mutex> lock(m);
+        cv.notify_all();
+    }
+
+private:
+    std::condition_variable cv;
+    std::mutex m;
+};
+static InterruptibleSleeper InterruptHandler;
 
 static EventLoop *CheckLoopNotNull(EventLoop *loop)
 {
@@ -39,14 +63,36 @@ TcpServer::~TcpServer()
     }
 }
 
+static void watchdog(int signal)
+{
+    if (signal == SIGTERM || signal == SIGINT)
+    {
+        std::cout << "Received signal " << signal << ", shutting down gracefully..." << std::endl;
+        InterruptHandler.interrupt();
+    };
+}
 // 开启服务器监听 loop.loop()
 void TcpServer::start()
 {
     if (!started_) // 防止TcpServer被start多次
     {
+        struct sigaction sa;
+        sa.sa_handler = watchdog;
+        sigemptyset(&sa.sa_mask);
+        sa.sa_flags = 0;
+        sigaction(SIGTERM, &sa, nullptr);
+        sigaction(SIGINT, &sa, nullptr);
+
         started_ = true;
         threadPool_->start(threadInitCallback_);
         loop_->runInLoop(std::bind(&Acceptor::listen, acceptor_.get()));
+
+        std::thread t([]()
+                      {InterruptHandler.wait();
+        // TODO:优雅关闭。拒绝所有新连接，已有连接请求超过10s后强制返回退出
+        // loop_->quit();
+        exit(0); });
+        t.detach();
     }
 }
 

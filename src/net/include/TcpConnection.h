@@ -46,6 +46,9 @@ public:
     // 连接销毁
     void connectDestroyed();
 
+    void forceClose();
+    void setTcpNoDelay(bool on);
+
 private:
     enum StateConn
     {
@@ -63,6 +66,7 @@ private:
 
     void sendInLoop(const void *message, size_t len);
     void shutdownInLoop();
+    void forceCloseInLoop();
 
     EventLoop *loop_; // subLoop,TcpConnection是在subLoop中管理的
     const std::string name_;

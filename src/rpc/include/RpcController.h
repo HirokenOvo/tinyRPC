@@ -42,6 +42,8 @@ public:
     // NOT call SetFailed().
     void SetFailed(const std::string &reason);
 
+    void SetMsg(const std::string &reason);
+
     // If true, indicates that the client canceled the RPC, so the server may
     // as well give up on replying to it.  The server should still call the
     // final "done" callback.

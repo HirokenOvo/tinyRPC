@@ -23,7 +23,7 @@ std::shared_ptr<std::unordered_map<std::string, std::string>> Config::sptrUmp_{n
 
 void Config::loadCfgFile(int argc, char **argv, cfgType tp)
 {
-    if (argc != 2)
+    if (argc < 2)
     {
         std::cout << "format: path/to/executable path/to/config" << std::endl;
         exit(EXIT_FAILURE);

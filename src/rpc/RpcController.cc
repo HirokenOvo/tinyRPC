@@ -19,6 +19,10 @@ std::string RpcController::ErrorText() const { return errMsg_; }
 void RpcController::SetFailed(const std::string &reason)
 {
     failed_ = true;
+}
+
+void RpcController::SetMsg(const std::string &reason)
+{
     errMsg_ = reason;
 }
 

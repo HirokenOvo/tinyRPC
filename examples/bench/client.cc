@@ -66,7 +66,10 @@ public:
     request.set_id(id_);
     request.set_cnt(count_);
     echo::EchoResponse *response = new echo::EchoResponse;
-    stub_.Echo(NULL, &request, response, nullptr);
+    RpcController ctrl;
+    stub_.Echo(&ctrl, &request, response, nullptr);
+    if (ctrl.Failed())
+      std::cout << ctrl.ErrorText() << std::endl;
     replied(response);
   }
 

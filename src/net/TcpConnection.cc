@@ -249,3 +249,27 @@ void TcpConnection::setHighWaterMarkCallback(const HighWaterMarkCallback &cb, si
     highWaterMarkCallback_ = cb;
     highWaterMark_ = highWaterMark;
 }
+
+void TcpConnection::forceClose()
+{
+    // FIXME: use compare and swap
+    if (state_ == kConnected || state_ == kDisconnecting)
+    {
+        setState(kDisconnecting);
+        loop_->queueInLoop(
+            std::bind(&TcpConnection::forceCloseInLoop, shared_from_this()));
+    }
+}
+
+void TcpConnection::forceCloseInLoop()
+{
+    if (state_ == kConnected || state_ == kDisconnecting)
+    {
+        // as if we received 0 byte in handleRead();
+        handleClose();
+    }
+}
+void TcpConnection::setTcpNoDelay(bool on)
+{
+    socket_->setTcpNoDelay(on);
+}

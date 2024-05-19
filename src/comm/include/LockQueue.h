@@ -25,6 +25,15 @@ public:
         return data;
     }
 
+    T front()
+    {
+        std::unique_lock<std::mutex> lock(mutex_);
+        while (qe_.empty())
+            cond_.wait(lock);
+
+        return qe_.front();
+    }
+
 private:
     std::mutex mutex_;
     std::condition_variable cond_;
