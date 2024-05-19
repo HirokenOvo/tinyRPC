@@ -41,7 +41,7 @@ void ZkClient::start(ZooLogLevel logLevel)
     网络I/O线程  pthread_create  poll
     watcher回调线程 pthread_create
     */
-    zhandle_ = zookeeper_init(ipPort.c_str(), global_watcher, 30000, nullptr, nullptr, 0);
+    zhandle_ = zookeeper_init(ipPort.c_str(), global_watcher, 5000, nullptr, nullptr, 0);
 
     if (zhandle_ == nullptr)
     {
@@ -99,10 +99,9 @@ static void getChildrenList(zhandle_t *zh, const char *path, void *watcherCtx)
     if (rc == ZOK)
     {
         // 将子节点列表更新给watcherCtx
-        WriteFstMp<std::string, std::pair<struct String_vector, int>> *mp = static_cast<WriteFstMp<std::string, std::pair<struct String_vector, int>> *>(watcherCtx);
-        std::unique_ptr<LockQueue<struct String_vector>> tptr = std::make_unique<LockQueue<struct String_vector>>();
+        WriteFstMp<std::string, struct String_vector> *mp = static_cast<WriteFstMp<std::string, struct String_vector> *>(watcherCtx);
 
-        mp->change(std::string(path), {strings, 0});
+        mp->change(std::string(path), strings);
 
         // FIXME:释放内存怎么解决
         // deallocate_String_vector(&strings);
@@ -121,9 +120,9 @@ static void getChildrenListwatcher(zhandle_t *zh, int type, int state, const cha
 
         // 重新获取子节点列表
         getChildrenList(zh, path, watcherCtx);
-        WriteFstMp<std::string, std::pair<struct String_vector, int>> *mp = static_cast<WriteFstMp<std::string, std::pair<struct String_vector, int>> *>(watcherCtx);
+        WriteFstMp<std::string, struct String_vector> *mp = static_cast<WriteFstMp<std::string, struct String_vector> *>(watcherCtx);
 
-        const auto &strings = mp->get(std::string(path)).first;
+        const auto &strings = mp->get(std::string(path));
         printf("Updated children list:\n");
         for (int i = 0; i < strings.count; ++i)
             printf("%s\n", strings.data[i]);

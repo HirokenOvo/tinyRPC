@@ -12,7 +12,7 @@
 #include <atomic>
 
 // static WriteFstMp<std::string, std::unique_ptr<LockQueue<std::string>>> host_list_cache;
-static WriteFstMp<std::string, std::pair<struct String_vector, int>> host_list_cache;
+static WriteFstMp<std::string, struct String_vector> host_list_cache;
 
 void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
                             RpcController *controller,
@@ -111,16 +111,13 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     };
 
     auto &zkCli = linkZk();
-    auto getHostData = [&zkCli, &method_path](WriteFstMp<std::string, std::pair<struct String_vector, int>> &cache) -> std::string
+    auto getHostData = [&zkCli, &method_path](WriteFstMp<std::string, struct String_vector> &cache) -> std::string
     {
         if (!cache.exist(method_path))
             zkCli.getChildrenList(method_path.c_str(), &cache);
-        {
-            const auto &[strVec, idx] = cache.get(method_path);
-            if (strVec.count >= idx)
-                zkCli.getChildrenList(method_path.c_str(), &cache);
-        }
-        const auto &[strVec, idx] = cache.get(method_path);
+
+        const auto strVec = cache.get(method_path);
+        int idx = rand() % strVec.count;
         std::string path = method_path + "/" + std::string(strVec.data[idx]);
         return zkCli.getData(path.c_str());
     };
@@ -130,8 +127,6 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     {
         if (controller)
             controller->SetMsg(method_path + " is not exist!");
-        const auto &[strVec, idx] = host_list_cache.get(method_path);
-        host_list_cache.change(method_path, {strVec, idx + 1});
         CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
@@ -140,8 +135,6 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
     {
         if (controller)
             controller->SetMsg(method_path + " address is invalid!");
-        const auto &[strVec, idx] = host_list_cache.get(method_path);
-        host_list_cache.change(method_path, {strVec, idx + 1});
         CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
@@ -162,8 +155,6 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         sprintf(buf, "Connect Failed! Errno:%d", errno);
         if (controller)
             controller->SetMsg(buf);
-        const auto &[strVec, idx] = host_list_cache.get(method_path);
-        host_list_cache.change(method_path, {strVec, idx + 1});
         CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
@@ -176,8 +167,6 @@ void RpcChannel::CallMethod(const google::protobuf::MethodDescriptor *method,
         sprintf(buf, "Send Failed! Errno:%d", errno);
         if (controller)
             controller->SetMsg(buf);
-        const auto &[strVec, idx] = host_list_cache.get(method_path);
-        host_list_cache.change(method_path, {strVec, idx + 1});
         CallMethod(method, controller, request, response, done, cnt + 1);
         return;
     }
